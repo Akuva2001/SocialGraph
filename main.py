@@ -8,15 +8,18 @@ from PersonalData import access_token
 api_version = '5.131'
 my_id = '167196653'
 read_id = input("Type interested vk id or write \"0\" to use default: ")
-if read_id != 0:
+if read_id != '0':
     my_id = read_id
+    print("my_id changed", my_id)
+friend_num = int(input("Type how many friends you want to show or write \"0\" show all: "))
+
 
 params_for_users_get = {'user_ids': my_id,
                         'access_token': access_token,
                         'v': api_version}
 
-r = requests.get('https://api.vk.com/method/users.get', params=params_for_users_get)
-print(r.text)
+myFirstAndLastName = requests.get('https://api.vk.com/method/users.get', params=params_for_users_get)
+#print(myFirstAndLastName.text)
 
 params_for_friends_get = {'user_id': my_id,
                           'order': 'hints',
@@ -25,12 +28,17 @@ params_for_friends_get = {'user_id': my_id,
                           'v': api_version}
 
 r = requests.get('https://api.vk.com/method/friends.get', params=params_for_friends_get)
+if 'error' in r.json() and r.json()['error']['error_code'] == 30:
+    print('This is private profile, sorry')
+    exit()
 print(r.text)
 AllMyFriends = r.json()['response']['items']
-print(AllMyFriends[0]['id'])
-print(AllMyFriends[0]['is_closed'])
-print(AllMyFriends)
+#print(AllMyFriends[0]['id'])
+#print(AllMyFriends[0]['is_closed'])
+#print(AllMyFriends)
 AllMyFriendsWithoutClosed = [i for i in AllMyFriends if 'is_closed' in i and i['is_closed'] == False]
+if friend_num == 0:
+    friend_num = len(AllMyFriendsWithoutClosed)
 
 G = nx.Graph()
 
@@ -56,19 +64,27 @@ def GetFriendListById(friend_id):
         return [], False
 
 
-MyFriends = AllMyFriendsWithoutClosed[:100]
+MyFriends = AllMyFriendsWithoutClosed[:friend_num-1]
+#MyFriends.append(myFirstAndLastName.json()['response'][0])
 MyFriendsSet = set([i['id'] for i in MyFriends])
+MyFriendsDict = dict([(i['id'], i) for i in MyFriends])
+MyFriendsDict[int(my_id)] = myFirstAndLastName.json()['response'][0]
+#print(MyFriends)
+#print(G.nodes())
 for friend_id in MyFriends:
     friendFriendList, Flag = GetFriendListById(friend_id['id'])
     if not Flag:
         continue
+    G.add_edge(friend_id['id'], int(my_id))
     for friendFriend_id in friendFriendList:
         if friendFriend_id in MyFriendsSet:
             G.add_edge(friend_id['id'], friendFriend_id)
-    G.add_edge(friend_id['id'], my_id)
+
+G_nodes_list = list(G.nodes)
+#print(G_nodes_list)
 
 pos = nx.spring_layout(G)
-print(pos)
+#print(pos)
 
 nx.draw_networkx_nodes(G, pos, node_size=50)
 nx.draw_networkx_edges(G, pos, edge_color='b')
@@ -95,6 +111,7 @@ edge_trace = go.Scatter(
 node_x = []
 node_y = []
 for node in G.nodes():
+    # print(node)
     x, y = pos.get(node)  # G.nodes[node]['pos']
     node_x.append(x)
     node_y.append(y)
@@ -115,7 +132,7 @@ node_trace = go.Scatter(
         size=10,
         colorbar=dict(
             thickness=15,
-            title='Node Connections',
+            title='Node Edges',
             xanchor='left',
             titleside='right'
         ),
@@ -123,25 +140,29 @@ node_trace = go.Scatter(
 
 node_adjacencies = []
 node_text = []
+#print(MyFriendsDict)
+# print(G_nodes_list[1])
+# print(MyFriendsDict[G_nodes_list[1]]['first_name'])
 for node, adjacencies in enumerate(G.adjacency()):
     node_adjacencies.append(len(adjacencies[1]))
-    node_text.append('# of connections: ' + str(len(adjacencies[1])))
+    node_text.append(MyFriendsDict[G_nodes_list[node]]['first_name'] + ' ' + MyFriendsDict[G_nodes_list[node]]['last_name'] + ' ' + str(len(adjacencies[1])) + ' edges')
+    #  print(node)
 
 node_trace.marker.color = node_adjacencies
 node_trace.text = node_text
 
 fig = go.Figure(data=[edge_trace, node_trace],
                 layout=go.Layout(
-                    title='<br>Network graph made with Python',
+                    title='<br>Social graph to ' + myFirstAndLastName.json()['response'][0]['first_name'] + ' ' + myFirstAndLastName.json()['response'][0]['last_name'],
                     titlefont_size=16,
                     showlegend=False,
                     hovermode='closest',
                     margin=dict(b=20, l=5, r=5, t=40),
                     annotations=[dict(
-                        text="Python code: <a href='https://plotly.com/ipython-notebooks/network-graphs/'> https://plotly.com/ipython-notebooks/network-graphs/</a>",
+                        text="Python code: <a href='https://github.com/Akuva2001/SocialGraph'> https://github.com/Akuva2001/SocialGraph</a>",
                         showarrow=False,
                         xref="paper", yref="paper",
-                        x=0.005, y=-0.002)],
+                        x=0.005, y=-0.005)],
                     xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
                     yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
                 )
