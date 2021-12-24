@@ -7,4 +7,4 @@ and register your own Standalone App
 
 (Instead you can just go to [there](https://vk.com/apps?act=manage)) and click "add app"
 
-![Add app](images/"Add app.png")
+![Add app](https://github.com/Akuva2001/SocialGraph/blob/main/images/Add%20app.png)
